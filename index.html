@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VECTOR ODYSSEY - 1980s Wireframe Arcade</title>
+    <!-- Tailwind CSS for modern layout frame around CRT canvas -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050805;
+            font-family: 'VT323', monospace;
+            color: #33ff33;
+            overflow: hidden;
+        }
+
+        /* CRT Glowing Aesthetic */
+        .crt-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+
+        /* CRT Screen Scanline Overlay */
+        .crt-container::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 20;
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+        }
+
+        /* CRT Screen Curved Border and Vignette */
+        .crt-container::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: radial-gradient(circle at center, transparent 60%, rgba(0,0,0,0.85) 100%);
+            z-index: 21;
+            pointer-events: none;
+            box-shadow: inset 0 0 100px rgba(0, 255, 66, 0.15);
+        }
+
+        canvas {
+            display: block;
+            background-color: #020b02;
+            box-shadow: 0 0 20px rgba(51, 255, 51, 0.2);
+            image-rendering: pixelated;
+        }
+
+        /* Vector Glow Text */
+        .vector-text {
+            color: #33ff33;
+            text-shadow: 0 0 5px #33ff33, 0 0 10px #33ff33, 0 0 20px #00aa00;
+        }
+
+        .vector-text-amber {
+            color: #ffb000;
+            text-shadow: 0 0 5px #ffb000, 0 0 10px #ffb000, 0 0 20px #aa7700;
+        }
+
+        .vector-btn {
+            background: rgba(0, 20, 0, 0.6);
+            border: 2px solid #33ff33;
+            color: #33ff33;
+            text-shadow: 0 0 5px #33ff33;
+            box-shadow: 0 0 10px rgba(51, 255, 51, 0.3), inset 0 0 10px rgba(51, 255, 51, 0.2);
+            transition: all 0.15s ease;
+        }
+
+        .vector-btn:hover, .vector-btn:active {
+            background: #33ff33;
+            color: #000;
+            text-shadow: none;
+            box-shadow: 0 0 20px #33ff33;
+        }
+
+        /* Touch Controls Styling */
+        .touch-btn {
+            background: rgba(0, 40, 0, 0.4);
+            border: 2px solid rgba(51, 255, 51, 0.5);
+            color: rgba(51, 255, 51, 0.8);
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .touch-btn:active {
+            background: rgba(51, 255, 51, 0.4);
+            color: #fff;
+            border-color: #33ff33;
+            box-shadow: 0 0 15px #33ff33;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen w-screen overflow-hidden">
+
+    <!-- CRT Frame Container -->
+    <div class="crt-container flex-1 relative overflow-hidden flex flex-col justify-center items-center">
+
+        <!-- Top HUD Bar -->
+        <div class="absolute top-2 left-0 right-0 z-30 flex justify-between items-center px-6 pointer-events-none text-xl sm:text-2xl tracking-wider vector-text">
+            <div class="flex items-center space-x-6">
+                <div>SCORE: <span id="scoreVal">000000</span></div>
+                <div>LIVES: <span id="livesVal">3</span></div>
+            </div>
+            <div class="hidden sm:block text-center opacity-80 text-lg">VECTOR ODYSSEY</div>
+            <div>HIGH: <span id="highScoreVal">000000</span></div>
+        </div>
+
+        <!-- Canvas Game Screen -->
+        <canvas id="gameCanvas" class="w-full h-full z-10"></canvas>
+
+        <!-- UI Overlay: Start Screen -->
+        <div id="startOverlay" class="absolute z-30 inset-0 flex flex-col items-center justify-center bg-black/80 p-4 text-center">
+            <h1 class="text-5xl sm:text-7xl font-bold mb-2 vector-text tracking-widest">VECTOR ODYSSEY</h1>
+            <p class="text-xl sm:text-2xl vector-text-amber mb-8 max-w-md">VINTAGE 1980s WIREFRAME ARCADE SIMULATOR</p>
+            
+            <div class="mb-8 text-lg sm:text-xl vector-text space-y-2 max-w-lg text-left border border-green-500/30 p-4 rounded bg-black/60">
+                <p>⚡ <span class="font-bold">ROTATE:</span> Left/Right Arrows or A/D</p>
+                <p>🚀 <span class="font-bold">THRUST:</span> Up Arrow or W</p>
+                <p>💥 <span class="font-bold">FIRE LASER:</span> Spacebar</p>
+                <p>🛡️ <span class="font-bold">HYPERSPACE:</span> Down Arrow or S</p>
+            </div>
+
+            <button id="startBtn" class="vector-btn px-8 py-3 text-2xl sm:text-3xl rounded font-bold uppercase tracking-wider cursor-pointer">
+                INITIALIZE MISSION
+            </button>
+        </div>
+
+        <!-- UI Overlay: Game Over Screen -->
+        <div id="gameOverOverlay" class="hidden absolute z-30 inset-0 flex flex-col items-center justify-center bg-black/90 p-4 text-center">
+            <h2 class="text-6xl sm:text-8xl font-bold mb-4 text-red-500 style-glow-red tracking-widest animate-pulse" style="text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;">GAME OVER</h2>
+            <p class="text-2xl sm:text-3xl vector-text mb-2">FINAL SCORE: <span id="finalScore">0</span></p>
+            <p id="newHighNotice" class="text-xl sm:text-2xl vector-text-amber mb-6 hidden">*** NEW HIGH SCORE RECORD ***</p>
+
+            <button id="restartBtn" class="vector-btn px-8 py-3 text-2xl sm:text-3xl rounded font-bold uppercase tracking-wider cursor-pointer mt-4">
+                RESTART SYSTEM
+            </button>
+        </div>
+
+        <!-- On-Screen Mobile Touch Controls -->
+        <div id="touchControls" class="absolute bottom-4 left-4 right-4 z-30 flex justify-between items-end pointer-events-none md:hidden">
+            <!-- Left Side Controls: Rotate Left, Right & Thrust -->
+            <div class="flex flex-col items-center gap-2 pointer-events-auto">
+                <button id="btnThrust" class="touch-btn w-16 h-16 mb-1">▲</button>
+                <div class="flex gap-3">
+                    <button id="btnLeft" class="touch-btn w-16 h-16">◄</button>
+                    <button id="btnRight" class="touch-btn w-16 h-16">►</button>
+                </div>
+            </div>
+
+            <!-- Right Side Controls: Fire & Hyperspace -->
+            <div class="flex gap-3 pointer-events-auto mb-2">
+                <button id="btnHyperspace" class="touch-btn w-14 h-14 text-xs font-bold vector-text-amber">HYPER</button>
+                <button id="btnFire" class="touch-btn w-20 h-20 text-2xl border-2 border-red-500 text-red-400">🔥</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        // --- Retro Audio Synthesizer via Web Audio API ---
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playLaser() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.15);
+                
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playExplosion(type = 'medium') {
+                if (!this.ctx) return;
+                const dur = type === 'large' ? 0.6 : (type === 'small' ? 0.2 : 0.4);
+                
+                // White noise buffer for explosion explosion effect
+                const bufferSize = this.ctx.sampleRate * dur;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(type === 'large' ? 300 : 800, this.ctx.currentTime);
+                filter.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + dur);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                noise.start();
+                noise.stop(this.ctx.currentTime + dur);
+            }
+
+            playThrust() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(60 + Math.random() * 20, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playUfoSound() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                
+                const time = this.ctx.currentTime;
+                osc.frequency.setValueAtTime(400, time);
+                osc.frequency.linearRampToValueAtTime(800, time + 0.1);
+                osc.frequency.linearRampToValueAtTime(400, time + 0.2);
+
+                gain.gain.setValueAtTime(0.05, time);
+                gain.gain.linearRampToValueAtTime(0.01, time + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(time);
+                osc.stop(time + 0.2);
+            }
+
+            playHyperspace() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1500, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.3);
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        // --- Game Setup & State ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let score = 0;
+        let lives = 3;
+        let highScore = parseInt(localStorage.getItem('vector_odyssey_highscore')) || 0;
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let level = 1;
+
+        // UI Elements
+        const scoreEl = document.getElementById('scoreVal');
+        const livesEl = document.getElementById('livesVal');
+        const highScoreEl = document.getElementById('highScoreVal');
+        const startOverlay = document.getElementById('startOverlay');
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const finalScoreEl = document.getElementById('finalScore');
+        const newHighNotice = document.getElementById('newHighNotice');
+
+        highScoreEl.innerText = String(highScore).padStart(6, '0');
+
+        // Resize Canvas handling
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        // --- Controls Input Tracking ---
+        const keys = {
+            left: false,
+            right: false,
+            thrust: false,
+            fire: false,
+            hyperspace: false
+        };
+
+        // Keyboard listeners
+        window.addEventListener('keydown', (e) => {
+            sfx.init();
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.thrust = true;
+            if (e.code === 'Space') {
+                if (!keys.fire && gameState === 'PLAYING') ship.fireLaser();
+                keys.fire = true;
+            }
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+                if (!keys.hyperspace && gameState === 'PLAYING') ship.triggerHyperspace();
+                keys.hyperspace = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.thrust = false;
+            if (e.code === 'Space') keys.fire = false;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') keys.hyperspace = false;
+        });
+
+        // Mobile Touch Listeners Setup
+        function setupTouchBtn(id, keyName, onDownAction = null) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+
+            const handleStart = (e) => {
+                e.preventDefault();
+                sfx.init();
+                keys[keyName] = true;
+                if (onDownAction && gameState === 'PLAYING') onDownAction();
+            };
+
+            const handleEnd = (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+            };
+
+            btn.addEventListener('touchstart', handleStart);
+            btn.addEventListener('touchend', handleEnd);
+            btn.addEventListener('mousedown', handleStart);
+            btn.addEventListener('mouseup', handleEnd);
+        }
+
+        setupTouchBtn('btnLeft', 'left');
+        setupTouchBtn('btnRight', 'right');
+        setupTouchBtn('btnThrust', 'thrust');
+        setupTouchBtn('btnFire', 'fire', () => ship.fireLaser());
+        setupTouchBtn('btnHyperspace', 'hyperspace', () => ship.triggerHyperspace());
+
+        // Button Action Listeners
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+
+        // --- Helper Vector Drawing Functions ---
+        function drawWireframePolygon(ctx, points, x, y, angle, scale, color = '#33ff33', strokeWidth = 2) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.scale(scale, scale);
+            
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.closePath();
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = strokeWidth / scale;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // --- Player Ship Class ---
+        class Ship {
+            constructor() {
+                this.reset();
+                // Vector geometry of classic Asteroids ship
+                this.shape = [
+                    { x: 15, y: 0 },
+                    { x: -12, y: -10 },
+                    { x: -7, y: 0 },
+                    { x: -12, y: 10 }
+                ];
+                this.flameShape = [
+                    { x: -8, y: -4 },
+                    { x: -18, y: 0 },
+                    { x: -8, y: 4 }
+                ];
+            }
+
+            reset() {
+                this.x = width / 2;
+                this.y = height / 2;
+                this.vx = 0;
+                this.vy = 0;
+                this.angle = -Math.PI / 2; // Facing Up
+                this.rotationSpeed = 0.085;
+                this.thrustPower = 0.15;
+                this.friction = 0.985;
+                this.invulnerable = 0; // Frames of invulnerability
+                this.visible = true;
+            }
+
+            update() {
+                if (this.invulnerable > 0) this.invulnerable--;
+
+                // Rotation
+                if (keys.left) this.angle -= this.rotationSpeed;
+                if (keys.right) this.angle += this.rotationSpeed;
+
+                // Thrust & Momentum
+                if (keys.thrust) {
+                    this.vx += Math.cos(this.angle) * this.thrustPower;
+                    this.vy += Math.sin(this.angle) * this.thrustPower;
+                    if (Math.random() < 0.4) sfx.playThrust();
+                }
+
+                // Apply Friction
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                // Update Position
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Screen Wrap
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+
+            draw() {
+                if (!this.visible) return;
+                // Blinking effect during invulnerability
+                if (this.invulnerable > 0 && Math.floor(Date.now() / 100) % 2 === 0) return;
+
+                drawWireframePolygon(ctx, this.shape, this.x, this.y, this.angle, 1, '#33ff33', 2);
+
+                // Draw Thruster Flame if Accelerating
+                if (keys.thrust) {
+                    drawWireframePolygon(ctx, this.flameShape, this.x, this.y, this.angle, 1, '#ffb000', 1.5);
+                }
+            }
+
+            fireLaser() {
+                if (!this.visible) return;
+                lasers.push(new Laser(this.x, this.y, this.angle));
+                sfx.playLaser();
+            }
+
+            triggerHyperspace() {
+                if (!this.visible) return;
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = 0;
+                this.vy = 0;
+                createParticles(this.x, this.y, 12, '#ffb000');
+                sfx.playHyperspace();
+            }
+        }
+
+        // --- Laser Pulse Class ---
+        class Laser {
+            constructor(x, y, angle) {
+                this.x = x + Math.cos(angle) * 15;
+                this.y = y + Math.sin(angle) * 15;
+                this.speed = 12;
+                this.vx = Math.cos(angle) * this.speed;
+                this.vy = Math.sin(angle) * this.speed;
+                this.life = 50; // frames
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+
+                // Screen Wrap
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.strokeStyle = '#33ff33';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#33ff33';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - this.vx * 1.5, this.y - this.vy * 1.5);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // --- Wireframe Asteroid Class ---
+        class Asteroid {
+            constructor(x, y, radius, level = 3) {
+                this.x = x !== undefined ? x : Math.random() * width;
+                this.y = y !== undefined ? y : Math.random() * height;
+                this.radius = radius || 45;
+                this.level = level; // 3 = Large, 2 = Medium, 1 = Small
+                this.angle = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.03;
+                
+                const speed = (4 - this.level) * 1.2 + Math.random() * 0.5;
+                const moveAngle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(moveAngle) * speed;
+                this.vy = Math.sin(moveAngle) * speed;
+
+                // Create unique jagged wireframe shape
+                this.points = [];
+                const numPoints = Math.floor(Math.random() * 4) + 8;
+                for (let i = 0; i < numPoints; i++) {
+                    const a = (i / numPoints) * Math.PI * 2;
+                    const jitter = 0.75 + Math.random() * 0.5;
+                    this.points.push({
+                        x: Math.cos(a) * this.radius * jitter,
+                        y: Math.sin(a) * this.radius * jitter
+                    });
+                }
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.angle += this.rotationSpeed;
+
+                // Wrap Screen
+                if (this.x < -this.radius) this.x = width + this.radius;
+                if (this.x > width + this.radius) this.x = -this.radius;
+                if (this.y < -this.radius) this.y = height + this.radius;
+                if (this.y > height + this.radius) this.y = -this.radius;
+            }
+
+            draw() {
+                drawWireframePolygon(ctx, this.points, this.x, this.y, this.angle, 1, '#33ff33', 2);
+            }
+        }
+
+        // --- Enemy UFO Class ---
+        class UFO {
+            constructor() {
+                this.active = false;
+                this.reset();
+                this.shape = [
+                    { x: -20, y: 0 },
+                    { x: -10, y: -8 },
+                    { x: 10, y: -8 },
+                    { x: 20, y: 0 },
+                    { x: 10, y: 8 },
+                    { x: -10, y: 8 },
+                    { x: -20, y: 0 },
+                    { x: 20, y: 0 }
+                ];
+                this.domeShape = [
+                    { x: -7, y: -8 },
+                    { x: -4, y: -14 },
+                    { x: 4, y: -14 },
+                    { x: 7, y: -8 }
+                ];
+            }
+
+            reset() {
+                this.x = Math.random() < 0.5 ? -20 : width + 20;
+                this.y = Math.random() * (height * 0.7) + 50;
+                this.vx = (this.x < 0 ? 1 : -1) * (2 + Math.random() * 1.5);
+                this.vy = (Math.random() - 0.5) * 1.5;
+                this.radius = 18;
+                this.shootTimer = 0;
+            }
+
+            spawn() {
+                this.reset();
+                this.active = true;
+            }
+
+            update() {
+                if (!this.active) return;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Randomly change Y direction
+                if (Math.random() < 0.02) this.vy = (Math.random() - 0.5) * 2;
+
+                if (Math.random() < 0.05) sfx.playUfoSound();
+
+                // UFO Shooting
+                this.shootTimer++;
+                if (this.shootTimer > 90) {
+                    this.shootTimer = 0;
+                    this.fire();
+                }
+
+                // Despawn offscreen
+                if ((this.vx > 0 && this.x > width + 40) || (this.vx < 0 && this.x < -40)) {
+                    this.active = false;
+                }
+            }
+
+            fire() {
+                const angle = Math.atan2(ship.y - this.y, ship.x - this.x) + (Math.random() - 0.5) * 0.4;
+                enemyLasers.push(new Laser(this.x, this.y, angle));
+            }
+
+            draw() {
+                if (!this.active) return;
+                drawWireframePolygon(ctx, this.shape, this.x, this.y, 0, 1, '#ffb000', 2);
+                drawWireframePolygon(ctx, this.domeShape, this.x, this.y, 0, 1, '#ffb000', 1.5);
+            }
+        }
+
+        // --- Vector Particle Burst Class ---
+        class Particle {
+            constructor(x, y, color = '#33ff33') {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 1;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.life = 30 + Math.random() * 20;
+                this.maxLife = this.life;
+                this.length = Math.random() * 6 + 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.96;
+                this.vy *= 0.96;
+                this.life--;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 5;
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - this.vx * 2, this.y - this.vy * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // --- Game Collections ---
+        let ship = new Ship();
+        let ufo = new UFO();
+        let lasers = [];
+        let enemyLasers = [];
+        let asteroids = [];
+        let particles = [];
+
+        function createParticles(x, y, count = 15, color = '#33ff33') {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function spawnAsteroidField(count) {
+            asteroids = [];
+            for (let i = 0; i < count; i++) {
+                let x, y, dist;
+                // Spawn away from center player position
+                do {
+                    x = Math.random() * width;
+                    y = Math.random() * height;
+                    dist = Math.hypot(x - ship.x, y - ship.y);
+                } while (dist < 150);
+
+                asteroids.push(new Asteroid(x, y, 45, 3));
+            }
+        }
+
+        // --- Collision Detection Helpers ---
+        function checkCircleCollision(x1, y1, r1, x2, y2, r2) {
+            return Math.hypot(x2 - x1, y2 - y1) < r1 + r2;
+        }
+
+        // --- Main Game Loop ---
+        function startGame() {
+            score = 0;
+            lives = 3;
+            level = 1;
+            scoreEl.innerText = '000000';
+            livesEl.innerText = lives;
+
+            ship.reset();
+            lasers = [];
+            enemyLasers = [];
+            particles = [];
+            ufo.active = false;
+
+            spawnAsteroidField(4);
+
+            gameState = 'PLAYING';
+            startOverlay.classList.add('hidden');
+            gameOverOverlay.classList.add('hidden');
+            newHighNotice.classList.add('hidden');
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            finalScoreEl.innerText = String(score).padStart(6, '0');
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('vector_odyssey_highscore', highScore);
+                highScoreEl.innerText = String(highScore).padStart(6, '0');
+                newHighNotice.classList.remove('hidden');
+            }
+
+            gameOverOverlay.classList.remove('hidden');
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            // Player Ship Update
+            ship.update();
+
+            // Next Level Check
+            if (asteroids.length === 0 && !ufo.active) {
+                level++;
+                spawnAsteroidField(3 + level);
+                ship.invulnerable = 60; // Brief grace period
+            }
+
+            // UFO Spawning Chance
+            if (!ufo.active && Math.random() < 0.001 + (level * 0.0003)) {
+                ufo.spawn();
+            }
+
+            // UFO Update
+            ufo.update();
+
+            // Lasers Update
+            for (let i = lasers.length - 1; i >= 0; i--) {
+                lasers[i].update();
+                if (lasers[i].life <= 0) lasers.splice(i, 1);
+            }
+
+            // Enemy Lasers Update
+            for (let i = enemyLasers.length - 1; i >= 0; i--) {
+                enemyLasers[i].update();
+                if (enemyLasers[i].life <= 0) enemyLasers.splice(i, 1);
+            }
+
+            // Asteroids Update
+            asteroids.forEach(ast => ast.update());
+
+            // Particles Update
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            // --- Collisions Handling ---
+
+            // Laser vs Asteroids
+            for (let i = lasers.length - 1; i >= 0; i--) {
+                for (let j = asteroids.length - 1; j >= 0; j--) {
+                    if (checkCircleCollision(lasers[i].x, lasers[i].y, 2, asteroids[j].x, asteroids[j].y, asteroids[j].radius)) {
+                        createParticles(asteroids[j].x, asteroids[j].y, 12, '#33ff33');
+                        
+                        // Score calculation
+                        if (asteroids[j].level === 3) score += 20;
+                        else if (asteroids[j].level === 2) score += 50;
+                        else score += 100;
+                        scoreEl.innerText = String(score).padStart(6, '0');
+
+                        // Split Asteroid
+                        if (asteroids[j].level > 1) {
+                            asteroids.push(new Asteroid(asteroids[j].x, asteroids[j].y, asteroids[j].radius / 2, asteroids[j].level - 1));
+                            asteroids.push(new Asteroid(asteroids[j].x, asteroids[j].y, asteroids[j].radius / 2, asteroids[j].level - 1));
+                            sfx.playExplosion('small');
+                        } else {
+                            sfx.playExplosion('medium');
+                        }
+
+                        asteroids.splice(j, 1);
+                        lasers.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+
+            // Laser vs UFO
+            if (ufo.active) {
+                for (let i = lasers.length - 1; i >= 0; i--) {
+                    if (checkCircleCollision(lasers[i].x, lasers[i].y, 2, ufo.x, ufo.y, ufo.radius)) {
+                        createParticles(ufo.x, ufo.y, 25, '#ffb000');
+                        score += 500;
+                        scoreEl.innerText = String(score).padStart(6, '0');
+                        sfx.playExplosion('large');
+                        ufo.active = false;
+                        lasers.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+
+            // Enemy Lasers vs Ship
+            if (ship.invulnerable <= 0) {
+                for (let i = enemyLasers.length - 1; i >= 0; i--) {
+                    if (checkCircleCollision(enemyLasers[i].x, enemyLasers[i].y, 2, ship.x, ship.y, 10)) {
+                        destroyShip();
+                        enemyLasers.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+
+            // Ship vs Asteroids
+            if (ship.invulnerable <= 0) {
+                for (let j = 0; j < asteroids.length; j++) {
+                    if (checkCircleCollision(ship.x, ship.y, 10, asteroids[j].x, asteroids[j].y, asteroids[j].radius)) {
+                        destroyShip();
+                        break;
+                    }
+                }
+            }
+
+            // Ship vs UFO
+            if (ship.invulnerable <= 0 && ufo.active) {
+                if (checkCircleCollision(ship.x, ship.y, 10, ufo.x, ufo.y, ufo.radius)) {
+                    destroyShip();
+                }
+            }
+        }
+
+        function destroyShip() {
+            createParticles(ship.x, ship.y, 30, '#33ff33');
+            sfx.playExplosion('large');
+            lives--;
+            livesEl.innerText = lives;
+
+            if (lives <= 0) {
+                gameOver();
+            } else {
+                ship.reset();
+                ship.invulnerable = 120; // 2 seconds invulnerability
+            }
+        }
+
+        // --- Render Loop ---
+        function render() {
+            // Dark vectors background clear
+            ctx.fillStyle = '#020b02';
+            ctx.fillRect(0, 0, width, height);
+
+            // Grid / Background Vector Lines (Subtle retro screen effect)
+            ctx.save();
+            ctx.strokeStyle = 'rgba(51, 255, 51, 0.03)';
+            ctx.lineWidth = 1;
+            const gridSize = 80;
+            for (let x = 0; x < width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // Draw Game Entities
+            particles.forEach(p => p.draw());
+            lasers.forEach(l => l.draw());
+            enemyLasers.forEach(el => {
+                ctx.save();
+                ctx.strokeStyle = '#ffb000';
+                ctx.shadowColor = '#ffb000';
+                ctx.shadowBlur = 8;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(el.x, el.y, 2, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            });
+            asteroids.forEach(ast => ast.draw());
+            ufo.draw();
+            ship.draw();
+        }
+
+        // --- Game Loop ---
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = () => {
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
